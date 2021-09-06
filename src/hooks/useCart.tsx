@@ -32,12 +32,16 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
         return [];
     });
 
+    function setValuesInLocalStorage(cart: Product[]) {
+        localStorage.setItem("@RocketShoes:cart", JSON.stringify(cart));
+    }
+
     const addProduct = async (productId: number) => {
         try {
             const copyCart = [...cart];
             const product = copyCart.find((p) => p.id === productId);
 
-            const { data } = await api.get("/stock/" + productId);
+            const { data }: { data: Stock } = await api.get("/stock/" + productId);
 
             const amountInStock = data.amount;
             const currentAmount = product ? product.amount : 0;
@@ -56,6 +60,7 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
                 copyCart.push(data);
             }
             setCart(copyCart);
+            setValuesInLocalStorage(copyCart);
         } catch {
             toast.error("Erro na adição do produto");
         }
@@ -64,8 +69,18 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
     const removeProduct = (productId: number) => {
         try {
             const copyCart = [...cart];
-            const cartWithoutProduct = copyCart.filter((p) => p.id !== productId);
-            setCart(cartWithoutProduct);
+            const cartWithoutProduct = copyCart.filter((p) => {
+                if (p.id !== productId) {
+                    return p;
+                }
+                return 0;
+            });
+            if (cartWithoutProduct.length < copyCart.length) {
+                setCart(cartWithoutProduct);
+                setValuesInLocalStorage(cartWithoutProduct);
+            } else {
+                throw new Error();
+            }
         } catch {
             toast.error("Erro na remoção do produto");
         }
@@ -74,7 +89,7 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
     const updateProductAmount = async ({ productId, amount }: UpdateProductAmount) => {
         try {
             if (amount > 0) {
-                const { data } = await api.get("/stock/" + productId);
+                const { data }: { data: Stock } = await api.get("/stock/" + productId);
                 const amountInStock = data.amount;
                 const productInCart = cart.find((p) => p.id === productId);
 
@@ -86,6 +101,7 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
                 if (productInCart) {
                     productInCart.amount = amount;
                     setCart([...cart]);
+                    setValuesInLocalStorage([...cart]);
                 }
             }
         } catch {
